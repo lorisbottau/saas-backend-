@@ -36,7 +36,7 @@ jobs:
         run: docker compose up -d
 
       - name: Run pytest
-        run: ddocker compose exec -e OPENAI_API_KEY=$OPENAI_API_KEY api pytest -q
+        run: docker compose exec -e OPENAI_API_KEY=$OPENAI_API_KEY api pytest -q
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           JWT_SECRET_KEY:  ${{ secrets.JWT_SECRET_KEY }}
