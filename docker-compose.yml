@@ -1,0 +1,32 @@
+# docker-compose.yml
+
+services:
+  # --- Service FastAPI ---
+  api:
+    build: .
+    container_name: saas-backend
+    env_file:
+      - .env               # Variables d'environnement (OPENAI_API_KEY, JWT_SECRET_KEY, DATABASE_URL)
+    depends_on:
+      - db                 # Attendre que PostgreSQL soit prêt
+    ports:
+      - "8000:8000"        # hôte:conteneur
+    restart: unless-stopped
+
+  # --- Service PostgreSQL ---
+  db:
+    image: postgres:16-alpine
+    container_name: saas-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: saas_db
+    volumes:
+      - db_data:/var/lib/postgresql/data   # Persistance des données
+    ports:
+      - "5432:5432"        # optionnel : exposer PostgreSQL sur l'hôte
+    restart: unless-stopped
+
+# --- Volume nommé pour la base ---
+volumes:
+  db_data:

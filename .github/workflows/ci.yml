@@ -1,0 +1,77 @@
+name: CI/CD – Build, Tests & Docker Push
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # ---------------------------------------------------------------- #
+  # 1) Build & Tests
+  # ---------------------------------------------------------------- #
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build images
+        run: docker compose build --no-cache
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Run pytest
+        run: docker compose exec api pytest -q
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          JWT_SECRET_KEY:  ${{ secrets.JWT_SECRET_KEY }}
+          DATABASE_URL:    postgresql+psycopg2://postgres:postgres@db:5432/saas_db
+
+      - name: Shutdown services
+        if: always()
+        run: docker compose down
+
+  # ---------------------------------------------------------------- #
+  # 2) Build & Push image Docker (main branch only)
+  # ---------------------------------------------------------------- #
+  push-image:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/saas-backend:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/saas-backend:cache
+          cache-to:   type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/saas-backend:cache,mode=max
