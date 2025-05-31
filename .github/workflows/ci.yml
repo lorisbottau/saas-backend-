@@ -30,7 +30,8 @@ jobs:
 
       - name: Build images
         run: docker compose build --no-cache
-
+      - name: Copy env file
+        run: cp .env.example .env
       - name: Start services
         run: docker compose up -d
 
